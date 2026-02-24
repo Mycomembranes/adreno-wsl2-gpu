@@ -42,31 +42,34 @@ The PyTorch model is an exact architectural mirror of the wgpu model. Weight nam
 
 The wgpu forward pass is still faster than CPU-only PyTorch forward for the specific ops used (batched matmul, softmax over long sequences). The GPU excels at the forward pass because it consists of fewer, larger dispatches that amortize the D3D12 overhead.
 
-## Integration
+## Usage
 
-### Environment Variable
+### Quick Start
 
-```bash
-export OPERONFOLD_TORCH_BACKWARD=1  # Enable PyTorch backward (default: disabled)
+```python
+from wgpu_ml.hybrid_backward.wgpu_transformer import TransformerWGPU
+
+# Create model
+model = TransformerWGPU(d_model=128, n_layers=6, vocab_size=256)
+model.init_torch_backward()  # Enable PyTorch backward
+
+# Training loop
+logits, cache = model.forward_mlm(token_ids)
+loss = model.pytorch_backward(token_ids, mask_pos, labels, cache)
+# ... optimizer.step(model.params, model.grads) ...
 ```
 
-### Code Changes
+### Key Methods
 
-Three files modified:
-
-**`operonfold_wgpu_model.py`** (model):
+**`wgpu_transformer.py`** (GPU model):
 - `init_torch_backward()` — creates PyTorch model mirror, builds key mapping
-- `pytorch_backward(token_ids, segment_ids, mask_pos, labels, cache)` — PyTorch forward+backward, returns loss
+- `pytorch_backward(token_ids, mask_pos, labels, cache)` — PyTorch forward+backward, returns loss
 - `_sync_numpy_to_torch()` — copies numpy params to PyTorch state_dict
 - `_extract_torch_grads()` — copies PyTorch `.grad` arrays back to `model.grads`
 
-**`operonfold_train_wgpu.py`** (training loop):
-- Initializes PyTorch backward after model creation
-- Switches between PyTorch and numpy backward based on env var
-- Marks params dirty after optimizer step for re-sync
-
-**`launch_training.sh`**:
-- Sets `OPERONFOLD_TORCH_BACKWARD=1`
+**`torch_transformer.py`** (PyTorch mirror):
+- Identical architecture to the wgpu model
+- Used only for autograd computation, not for inference
 
 ### Threading Configuration
 
@@ -75,32 +78,47 @@ PyTorch uses 10 threads (matching the BLAS config), leaving 2 cores for wgpu/dat
 ```bash
 export OMP_NUM_THREADS=10
 export OPENBLAS_NUM_THREADS=10
+```
+
+```python
+import torch
 torch.set_num_threads(10)
 ```
 
 ## Performance
 
-| Configuration | Throughput | ETA (10 epochs) |
-|--------------|-----------|-----------------|
-| wgpu forward + numpy backward | 1.4 seq/s | ~80 days |
-| wgpu forward + PyTorch backward | 4.3 seq/s | ~26 days |
+Tested with a 1.23M parameter transformer (d_model=128, 6 layers, 4 heads), B=8, L=256:
+
+| Configuration | Throughput | Improvement |
+|--------------|-----------|-------------|
+| wgpu forward + numpy backward | 1.4 seq/s | baseline |
+| wgpu forward + PyTorch backward | 4.3 seq/s | **3.1x** |
 
 **3.1x speedup** with no accuracy loss. Loss continues from checkpoint without discontinuity.
 
-### Memory
+### Memory Overhead
 
 | Component | Size |
 |-----------|------|
 | wgpu model params | ~5MB |
 | PyTorch model mirror | ~5MB |
 | PyTorch autograd graph | ~50-100MB |
-| Total overhead | ~200MB |
+| **Total overhead** | **~200MB** |
 
-Total training memory: ~9.5GB (well within 49GB budget).
+## Adapting to Your Model
 
-## Future: Pure wgpu WGSL Backward (Phase 2)
+To use this pattern with your own transformer architecture:
 
-Once training completes, port the backward pass to pure WGSL compute shaders:
+1. Create a wgpu model class with numpy `self.params` dict and a `forward()` method
+2. Create a matching PyTorch `nn.Module` with identical layer structure
+3. Define the key mapping between your param naming conventions
+4. Copy the `init_torch_backward()`, `_sync_numpy_to_torch()`, `_extract_torch_grads()`, and `pytorch_backward()` methods
+
+The key insight: the param key mapping only needs to handle naming differences between your numpy param dict and PyTorch's `state_dict()` convention (typically LayerNorm gamma/beta vs weight/bias, and Sequential indexing).
+
+## Future: Pure wgpu WGSL Backward
+
+Once the hybrid approach is validated, the backward pass can be ported to pure WGSL compute shaders:
 - Custom shaders: `softmax_backward`, `layernorm_backward`, batched attention gradient
 - Single command buffer with all dispatches (amortize D3D12 overhead)
 - Eliminates CPU-GPU copy bottleneck entirely

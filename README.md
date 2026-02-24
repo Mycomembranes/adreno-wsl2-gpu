@@ -169,8 +169,12 @@ Times include WSL2 D3D12 interop overhead (~25-60ms fixed per dispatch). See [do
 
 For ML training workloads, the Dozen dispatch overhead (~25-60ms per dispatch) makes GPU backward passes inefficient. We provide a **hybrid approach**: wgpu GPU forward pass + PyTorch CPU autograd backward pass, achieving **3.1x speedup** (1.4 → 4.3 seq/s) on a 1.23M parameter transformer.
 
-```bash
-export OPERONFOLD_TORCH_BACKWARD=1  # Enable hybrid backward
+```python
+from wgpu_ml.hybrid_backward.wgpu_transformer import TransformerWGPU
+
+model = TransformerWGPU(d_model=128, n_layers=6, vocab_size=256)
+model.init_torch_backward()  # Enable PyTorch backward
+loss = model.pytorch_backward(token_ids, mask_pos, labels, cache)
 ```
 
 See [docs/HYBRID_BACKWARD_PASS.md](docs/HYBRID_BACKWARD_PASS.md) for architecture details, integration guide, and benchmarks.
@@ -241,8 +245,12 @@ adreno-wsl2-gpu/
 │   ├── wgpu_tensor.py           # GPU tensor + WGSL shaders
 │   ├── wgpu_autograd.py         # Autodiff engine
 │   ├── wgpu_nn.py               # NN modules + optimizer
-│   └── examples/
-│       └── train_demo.py        # Training example
+│   ├── examples/
+│   │   └── train_demo.py        # Training example
+│   └── hybrid_backward/         # wgpu forward + PyTorch backward
+│       ├── __init__.py
+│       ├── wgpu_transformer.py  # GPU model with hybrid backward
+│       └── torch_transformer.py # PyTorch mirror for autograd
 ├── patches/
 │   ├── mesa-dozen-adreno.patch                  # Mesa Dozen driver patches
 │   ├── wgpu-native-noncompliant-adapter.patch   # wgpu-native compliance bypass

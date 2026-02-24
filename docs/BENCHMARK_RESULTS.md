@@ -44,7 +44,7 @@ Run with: `python3 tests/bench_wgpu_full.py`
 
 ### Context
 
-OperonFold Phase 1 MLM training on a 1.23M parameter CoevolutionTransformer. The forward pass runs on the Adreno X1-85 via wgpu compute shaders. The backward pass was the bottleneck (~70% of compute) using manual numpy analytical gradients.
+MLM pre-training on a 1.23M parameter transformer (d_model=128, 6 layers, 4 heads). The forward pass runs on the Adreno X1-85 via wgpu compute shaders. The backward pass was the bottleneck (~70% of compute) using manual numpy analytical gradients.
 
 ### Optimization: PyTorch Autograd Backward
 
