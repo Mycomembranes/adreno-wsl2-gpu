@@ -215,6 +215,13 @@ Graphics requires `-Dplatforms=x11` in the Mesa build and a running X server (`D
 adreno-wsl2-gpu/
 ├── README.md                    # This file
 ├── LICENSE                      # MIT
+├── wgpu_ml/                     # GPU deep learning library
+│   ├── __init__.py
+│   ├── wgpu_tensor.py           # GPU tensor + WGSL shaders
+│   ├── wgpu_autograd.py         # Autodiff engine
+│   ├── wgpu_nn.py               # NN modules + optimizer
+│   └── examples/
+│       └── train_demo.py        # Training example
 ├── patches/
 │   ├── mesa-dozen-adreno.patch  # Mesa Dozen driver patches
 │   └── wgpu-device-gpu.patch    # wgpu-py GPU selection fix
@@ -237,6 +244,52 @@ adreno-wsl2-gpu/
     ├── DOZEN_ANALYSIS.md        # Root cause analysis of Dozen issues
     ├── BENCHMARK_RESULTS.md     # Performance measurements
     └── KNOWN_ISSUES.md          # Issues and workarounds
+```
+
+## wgpu_ml: GPU Deep Learning Library
+
+A PyTorch-like tensor, autograd, and neural network library that runs entirely on the Adreno GPU via wgpu compute shaders. No CUDA required.
+
+### Quick Usage
+
+```python
+import numpy as np
+from wgpu_ml import WgpuTensor, matmul, softmax
+
+# Create GPU tensors
+a = WgpuTensor.from_numpy(np.random.randn(64, 128).astype("float32"))
+b = WgpuTensor.from_numpy(np.random.randn(128, 64).astype("float32"))
+
+# GPU matmul + softmax
+c = matmul(a, b)
+probs = softmax(c)
+print(probs.shape)  # (64, 64)
+```
+
+### Features
+
+- **GPU Tensor** (`wgpu_tensor.py`, 1437 lines) — WGSL compute shaders for add, mul, matmul, softmax, layer_norm, GELU, embedding lookup, cross-entropy, and more. Pipeline caching, automatic float64-to-f32 conversion.
+- **Autograd** (`wgpu_autograd.py`, 1132 lines) — Reverse-mode automatic differentiation with `GradNode`, `WgpuParameter`, topological-sort backward pass. Supports all tensor ops.
+- **NN Modules** (`wgpu_nn.py`, 578 lines) — `Linear`, `LayerNorm`, `Embedding`, `MultiHeadAttention`, `TransformerLayer`, `Sequential`, `ModuleList`, `AdamW` optimizer.
+
+### Training Example
+
+```bash
+python -m wgpu_ml.examples.train_demo
+```
+
+Trains a 2-layer MLP on synthetic data. See [`wgpu_ml/examples/train_demo.py`](wgpu_ml/examples/train_demo.py).
+
+### Structure
+
+```
+wgpu_ml/
+├── __init__.py          # Public API
+├── wgpu_tensor.py       # GPU tensor ops (WGSL shaders)
+├── wgpu_autograd.py     # Autodiff engine
+├── wgpu_nn.py           # NN modules + AdamW
+└── examples/
+    └── train_demo.py    # MLP training example
 ```
 
 ## Contributing
