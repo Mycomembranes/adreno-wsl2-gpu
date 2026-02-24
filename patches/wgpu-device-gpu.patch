@@ -1,0 +1,13 @@
+--- a/wgpu/utils/device.py
++++ b/wgpu/utils/device.py
+@@ -207,6 +207,10 @@ class DefaultDeviceHelper:
+
+ helper = DefaultDeviceHelper()
+
++# Default to high-performance GPU (avoids llvmpipe selection on systems with
++# both a discrete/integrated GPU and a software rasterizer)
++helper._adapter_kwargs["power_preference"] = "high-performance"
++
+ # Public API functions
+ preconfigure_default_device = helper.preconfigure_default_device
+ get_default_device = helper.get_default_device
