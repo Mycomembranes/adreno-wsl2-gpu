@@ -1,0 +1,50 @@
+diff --git a/src/conv.rs b/src/conv.rs
+index 6bcf77a..e6854d1 100644
+--- a/src/conv.rs
++++ b/src/conv.rs
+@@ -278,6 +278,8 @@ pub fn map_instance_flags(flags: native::WGPUInstanceFlag) -> wgt::InstanceFlags
+     if (flags & native::WGPUInstanceFlag_DiscardHalLabels) != 0 {
+         result.insert(wgt::InstanceFlags::DISCARD_HAL_LABELS);
+     }
++    // Always allow non-compliant adapters (e.g. Mesa dozen on WSL2)
++    result.insert(wgt::InstanceFlags::ALLOW_UNDERLYING_NONCOMPLIANT_ADAPTER);
+     result
+ }
+ 
+@@ -340,7 +342,7 @@ pub unsafe fn map_instance_descriptor(
+                 noop: Default::default(),
+             },
+             flags: match extras.flags {
+-                native::WGPUInstanceFlag_Default => wgt::InstanceFlags::default(),
++                native::WGPUInstanceFlag_Default => wgt::InstanceFlags::default() | wgt::InstanceFlags::ALLOW_UNDERLYING_NONCOMPLIANT_ADAPTER,
+                 flags => map_instance_flags(flags),
+             },
+             memory_budget_thresholds: wgt::MemoryBudgetThresholds {
+@@ -349,7 +351,9 @@ pub unsafe fn map_instance_descriptor(
+             },
+         }
+     } else {
+-        wgt::InstanceDescriptor::default()
++        let mut desc = wgt::InstanceDescriptor::default();
++        desc.flags.insert(wgt::InstanceFlags::ALLOW_UNDERLYING_NONCOMPLIANT_ADAPTER);
++        desc
+     }
+ }
+ 
+diff --git a/src/lib.rs b/src/lib.rs
+index 3ec63ee..857c82c 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -662,7 +662,11 @@ pub unsafe extern "C" fn wgpuCreateInstance(
+                 WGPUSType_InstanceExtras => native::WGPUInstanceExtras
+             ))
+         }
+-        None => wgt::InstanceDescriptor::default(),
++        None => {
++            let mut desc = wgt::InstanceDescriptor::default();
++            desc.flags.insert(wgt::InstanceFlags::ALLOW_UNDERLYING_NONCOMPLIANT_ADAPTER);
++            desc
++        },
+     };
+ 
+     Arc::into_raw(Arc::new(WGPUInstanceImpl {

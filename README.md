@@ -99,6 +99,17 @@ vulkaninfo --summary
 | `-Dplatforms=x11` | Enables `VK_KHR_surface` + `VK_KHR_xcb_surface` + `VK_KHR_swapchain` for graphics |
 | `-Dvulkan-drivers=microsoft-experimental,swrast` | Builds Dozen (D3D12 Vulkan) + llvmpipe (software fallback) |
 
+### wgpu-native `conv.rs` + `lib.rs` (4 hunks)
+
+| Change | Why |
+|--------|-----|
+| `map_instance_flags()` always inserts `ALLOW_UNDERLYING_NONCOMPLIANT_ADAPTER` | wgpu-native's C API has no way to set this flag; the enum is missing bit 3 |
+| `map_instance_descriptor()` Default case adds the flag | Covers `WGPUInstanceFlag_Default` path |
+| `map_instance_descriptor()` no-extras fallback adds the flag | Covers when no `WGPUInstanceExtras` chain is provided |
+| `wgpuCreateInstance()` None descriptor adds the flag | Covers `wgpuCreateInstance(NULL)` path |
+
+See [docs/WGPU_NATIVE_PATCH.md](docs/WGPU_NATIVE_PATCH.md) for full technical details.
+
 ### wgpu-py `device.py`
 
 | Change | Why |
@@ -223,11 +234,13 @@ adreno-wsl2-gpu/
 │   └── examples/
 │       └── train_demo.py        # Training example
 ├── patches/
-│   ├── mesa-dozen-adreno.patch  # Mesa Dozen driver patches
-│   └── wgpu-device-gpu.patch    # wgpu-py GPU selection fix
+│   ├── mesa-dozen-adreno.patch                  # Mesa Dozen driver patches
+│   ├── wgpu-native-noncompliant-adapter.patch   # wgpu-native compliance bypass
+│   └── wgpu-device-gpu.patch                    # wgpu-py GPU selection fix
 ├── scripts/
 │   ├── setup_env.sh             # Runtime environment variables
 │   ├── build_mesa.sh            # Mesa build from source
+│   ├── build_wgpu_native.sh     # Patched wgpu-native builder
 │   ├── install.sh               # One-click installer
 │   └── check_prerequisites.sh   # Dependency checker
 ├── tests/
@@ -242,6 +255,7 @@ adreno-wsl2-gpu/
 │   └── wgpu_hang_fix.py         # Exit hang workaround
 └── docs/
     ├── DOZEN_ANALYSIS.md        # Root cause analysis of Dozen issues
+    ├── WGPU_NATIVE_PATCH.md     # wgpu-native patch technical docs
     ├── BENCHMARK_RESULTS.md     # Performance measurements
     └── KNOWN_ISSUES.md          # Issues and workarounds
 ```
