@@ -165,6 +165,16 @@ DISPLAY=:0 vkcube
 
 Times include WSL2 D3D12 interop overhead (~25-60ms fixed per dispatch). See [docs/BENCHMARK_RESULTS.md](docs/BENCHMARK_RESULTS.md) for full results.
 
+## Hybrid Training: wgpu Forward + PyTorch Backward
+
+For ML training workloads, the Dozen dispatch overhead (~25-60ms per dispatch) makes GPU backward passes inefficient. We provide a **hybrid approach**: wgpu GPU forward pass + PyTorch CPU autograd backward pass, achieving **3.1x speedup** (1.4 → 4.3 seq/s) on a 1.23M parameter transformer.
+
+```bash
+export OPERONFOLD_TORCH_BACKWARD=1  # Enable hybrid backward
+```
+
+See [docs/HYBRID_BACKWARD_PASS.md](docs/HYBRID_BACKWARD_PASS.md) for architecture details, integration guide, and benchmarks.
+
 ## Known Issues
 
 | Issue | Workaround |
@@ -257,6 +267,7 @@ adreno-wsl2-gpu/
     ├── DOZEN_ANALYSIS.md        # Root cause analysis of Dozen issues
     ├── WGPU_NATIVE_PATCH.md     # wgpu-native patch technical docs
     ├── BENCHMARK_RESULTS.md     # Performance measurements
+    ├── HYBRID_BACKWARD_PASS.md  # wgpu forward + PyTorch backward integration
     └── KNOWN_ISSUES.md          # Issues and workarounds
 ```
 

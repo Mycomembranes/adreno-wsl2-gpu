@@ -40,6 +40,33 @@ Run with: `python3 tests/bench_wgpu_full.py`
 - First dispatch is slower due to shader compilation; subsequent dispatches are faster
 - All results verified correct against CPU reference implementations
 
+## ML Training: Hybrid wgpu + PyTorch Backward Pass
+
+### Context
+
+OperonFold Phase 1 MLM training on a 1.23M parameter CoevolutionTransformer. The forward pass runs on the Adreno X1-85 via wgpu compute shaders. The backward pass was the bottleneck (~70% of compute) using manual numpy analytical gradients.
+
+### Optimization: PyTorch Autograd Backward
+
+Replaced the numpy backward pass with PyTorch 2.10.0+cpu autograd while keeping the wgpu forward pass on GPU:
+- **Fused GELU/LayerNorm kernels** (no separate alloc+compute per op)
+- **Multi-threaded MKL/OpenBLAS** via `torch.set_num_threads(10)`
+- **In-place gradient accumulation** (no temporary arrays)
+
+### Results
+
+| Configuration | Throughput | Improvement |
+|--------------|-----------|-------------|
+| wgpu forward + numpy backward | 1.4 seq/s | baseline |
+| wgpu forward + PyTorch backward | 4.3 seq/s | **3.1x** |
+
+Training config: B=8, L=256, grad_accum=8 (effective batch=64), 10 BLAS threads.
+Memory: ~9.5GB (well within 49GB budget, +200MB from PyTorch autograd graph).
+
+### Dozen Dispatch Overhead
+
+The ~25-60ms per-dispatch overhead from the WSL2 D3D12 interop layer makes GPU backward passes inefficient (dozens of small dispatches per backward step). The hybrid approach avoids this by keeping the backward pass entirely on CPU with optimized PyTorch kernels, while using the GPU only for the forward pass (fewer, larger dispatches).
+
 ## Raw Vulkan Compute
 
 Run with: `./tests/vulkan_compute_test`
