@@ -27,7 +27,7 @@ bash scripts/check_prerequisites.sh
 ## Quick Start
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/adreno-wsl2-gpu.git
+git clone https://github.com/Mycomembranes/adreno-wsl2-gpu.git
 cd adreno-wsl2-gpu
 bash scripts/install.sh
 ```
