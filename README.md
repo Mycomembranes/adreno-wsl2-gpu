@@ -1,3 +1,10 @@
+hey everyone! I patched this update and it now runs GPU -> GPU instead of CPU->GPU->CPU. 
+
+Here's the link!
+
+https://github.com/Mycomembranes/Snapdragon-Elite-Qualcomm-Adreno-X1-85-GPU-enabled-Deep-Learning#
+
+
 # Adreno X1-85 GPU on WSL2
 
 Run the Qualcomm Adreno X1-85 GPU (Snapdragon X Elite) under WSL2 Linux using Mesa's Dozen Vulkan-over-D3D12 driver. This repo provides patches, build scripts, and tests for both **compute** and **graphics** workloads.
